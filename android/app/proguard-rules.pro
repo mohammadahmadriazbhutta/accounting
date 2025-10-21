@@ -1,0 +1,9 @@
+-keep class your.app.models.** { *; }  # Replace 'your.app' with your package name (e.g., com.example.accounting)
+-keep class get_storage.** { *; }
+-keep class io.flutter.plugins.getstorage.** { *; }
+-keep class com.get.** { *; }
+-dontwarn com.get.**
+-keep class com.hivemq.** { *; }
+-keep class * implements com.hivemq.client.mqtt.** { *; }
+-keep class * extends com.hivemq.client.internal.** { *; }
+-dontwarn com.hivemq.**

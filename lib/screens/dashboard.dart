@@ -1,52 +1,17 @@
-import 'package:accounting/screens/report_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
-import '../models/customer_model.dart';
-import '../models/transaction_model.dart';
 import '../controllers/theme_controller.dart';
-// import 'customer_list_screen.dart';
+import '../controllers/dashboard_controller.dart';
+import '../screens/report_screen.dart';
+import '../widgets/summary_card.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  late Box<CustomerModel> customerBox;
-  late Box<TransactionModel> transactionBox;
-  double totalCredit = 0;
-  double totalDebit = 0;
-  double netBalance = 0;
-  List<TransactionModel> recentTransactions = [];
-
-  @override
-  void initState() {
-    super.initState();
-    customerBox = Hive.box<CustomerModel>('customers');
-    transactionBox = Hive.box<TransactionModel>('transactions');
-    _calculateTotals();
-  }
-
-  void _calculateTotals() {
-    final allTx = transactionBox.values.toList();
-
-    totalCredit = allTx
-        .where((t) => t.isCredit)
-        .fold(0.0, (sum, t) => sum + t.amount);
-    totalDebit = allTx
-        .where((t) => !t.isCredit)
-        .fold(0.0, (sum, t) => sum + t.amount);
-    netBalance = totalCredit - totalDebit;
-    recentTransactions = allTx.reversed.take(5).toList();
-    setState(() {});
-  }
 
   @override
   Widget build(BuildContext context) {
     final themeController = Get.find<ThemeController>();
+    final controller = Get.put(DashboardController());
 
     return Scaffold(
       appBar: AppBar(
@@ -66,39 +31,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => _calculateTotals(),
-        child: SingleChildScrollView(
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        return SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Summary Cards
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildSummaryCard(
-                    "Total Credit",
-                    totalCredit,
-                    Colors.green.shade400,
+                  Expanded(
+                    child: SummaryCard(
+                      title: "Total Credit",
+                      value: controller.totalCredit.value,
+                      color: Colors.green.shade400,
+                    ),
                   ),
-                  _buildSummaryCard(
-                    "Total Debit",
-                    totalDebit,
-                    Colors.red.shade400,
+                  Expanded(
+                    child: SummaryCard(
+                      title: "Total Debit",
+                      value: controller.totalDebit.value,
+                      color: Colors.red.shade400,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              _buildSummaryCard(
-                "Net Balance",
-                netBalance,
-                Colors.orange.shade400,
+              SummaryCard(
+                title: "Net Balance",
+                value: controller.netBalance.value,
+                color: Colors.orange.shade400,
               ),
               const SizedBox(height: 25),
-
-              // Customers Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -120,16 +88,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   onPressed: () => Get.to(() => const ReportsScreen()),
                 ),
               ),
-
               const SizedBox(height: 25),
-
               Text(
                 "Recent Transactions",
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 10),
-
-              if (recentTransactions.isEmpty)
+              if (controller.recentTransactions.isEmpty)
                 const Center(
                   child: Padding(
                     padding: EdgeInsets.all(20),
@@ -137,7 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 )
               else
-                ...recentTransactions.map((tx) {
+                ...controller.recentTransactions.map((tx) {
                   final color = tx.isCredit
                       ? Colors.green.shade400
                       : Colors.red.shade400;
@@ -152,12 +117,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           color: color,
                         ),
                       ),
-                      title: Text(tx.note),
+                      title: Text(tx.note ?? 'No note'),
                       subtitle: Text(
-                        "${tx.date.day}/${tx.date.month}/${tx.date.year}",
+                        tx.date != null
+                            ? "${tx.date!.day}/${tx.date!.month}/${tx.date!.year}"
+                            : 'No date',
                       ),
                       trailing: Text(
-                        "${tx.isCredit ? '+' : '-'}${tx.amount.toStringAsFixed(2)}",
+                        "${tx.isCredit ? '+' : '-'}${tx.amount?.toStringAsFixed(2) ?? '0.00'}",
                         style: TextStyle(
                           color: color,
                           fontWeight: FontWeight.bold,
@@ -168,49 +135,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 }).toList(),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard(String title, double value, Color color) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              value.toStringAsFixed(2),
-              style: const TextStyle(
-                fontSize: 20,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
+        );
+      }),
     );
   }
 }
