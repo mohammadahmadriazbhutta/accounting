@@ -1,8 +1,11 @@
+import 'package:accounting/screens/addcustomerscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/customer_model.dart';
-import 'add_customer_screen.dart';
+import 'report_screen.dart';
+import 'customer_detail_screen.dart';
 
 class CustomerListScreen extends StatefulWidget {
   const CustomerListScreen({super.key});
@@ -12,94 +15,88 @@ class CustomerListScreen extends StatefulWidget {
 }
 
 class _CustomerListScreenState extends State<CustomerListScreen> {
-  late Box<CustomerModel> customerBox;
+  Box<CustomerModel>? customerBox;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    customerBox = Hive.box<CustomerModel>('customers');
+    _openBox();
+  }
+
+  Future<void> _openBox() async {
+    customerBox = await Hive.openBox<CustomerModel>('customers');
+    setState(() => isLoading = false);
+  }
+
+  void _deleteCustomer(CustomerModel customer) async {
+    await customer.delete();
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Customers"), centerTitle: true),
-      body: ValueListenableBuilder(
-        valueListenable: customerBox.listenable(),
-        builder: (context, Box<CustomerModel> box, _) {
-          if (box.isEmpty) {
-            return const Center(child: Text("No customers added yet."));
-          }
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
+    return Scaffold(
+      appBar: AppBar(title: const Text('Customers'), centerTitle: true),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await Get.to(() => const AddCustomerScreen());
+          setState(() {});
+        },
+        child: const Icon(Icons.add),
+      ),
+      body: ValueListenableBuilder(
+        valueListenable: customerBox!.listenable(),
+        builder: (context, Box<CustomerModel> box, _) {
+          if (box.values.isEmpty) {
+            return const Center(child: Text("No customers added yet"));
+          }
           return ListView.builder(
-            itemCount: box.length,
+            itemCount: box.values.length,
             itemBuilder: (context, index) {
               final customer = box.getAt(index)!;
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.orange,
-                    child: Text(
-                      customer.name.isNotEmpty
-                          ? customer.name[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
                   title: Text(customer.name),
-                  subtitle: Text(customer.phone),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "Rs ${customer.totalAmount.toStringAsFixed(0)}",
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  subtitle: Text("Phone: ${customer.phone}"),
+                  onTap: () {
+                    Get.to(() => CustomerDetailScreen(customer: customer));
+                  },
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) async {
+                      if (value == 'edit') {
+                        await Get.to(
+                          () => AddCustomerScreen(editCustomer: customer),
+                        );
+                        setState(() {});
+                      } else if (value == 'delete') {
+                        _deleteCustomer(customer);
+                      } else if (value == 'report') {
+                        Get.to(() => ReportScreen(customer: customer));
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'report',
+                        child: Text('View Report'),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _deleteCustomer(index),
+                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete'),
                       ),
                     ],
                   ),
-                  onTap: () {
-                    // later we'll open customer detail screen
-                  },
                 ),
               );
             },
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.orange,
-        onPressed: () {
-          Get.to(() => const AddCustomerScreen());
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  void _deleteCustomer(int index) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Customer"),
-        content: const Text("Are you sure you want to delete this customer?"),
-        actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
-          TextButton(
-            onPressed: () {
-              customerBox.deleteAt(index);
-              Get.back();
-            },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
       ),
     );
   }

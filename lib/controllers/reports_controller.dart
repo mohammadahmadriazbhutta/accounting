@@ -1,32 +1,47 @@
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
-import '../models/customer_model.dart';
 import '../models/transaction_model.dart';
+import '../models/customer_model.dart';
 
-class ReportsController extends GetxController {
+class ReportController extends GetxController {
   late Box<TransactionModel> transactionBox;
   late Box<CustomerModel> customerBox;
 
-  var selectedMonth = DateTime.now().month.obs;
-  var totalCredit = 0.0.obs;
-  var totalDebit = 0.0.obs;
-  var balance = 0.0.obs;
-  var monthlyData = <Map<String, dynamic>>[].obs;
+  RxInt selectedMonth = DateTime.now().month.obs;
+  RxDouble totalCredit = 0.0.obs;
+  RxDouble totalDebit = 0.0.obs;
+  RxDouble balance = 0.0.obs;
+  RxList<Map<String, dynamic>> monthlyData = <Map<String, dynamic>>[].obs;
+
+  final List<String> monthNames = const [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
 
   @override
   void onInit() {
     super.onInit();
     transactionBox = Hive.box<TransactionModel>('transactions');
     customerBox = Hive.box<CustomerModel>('customers');
-    generateReport();
+    _generateReport();
   }
 
   void changeMonth(int month) {
     selectedMonth.value = month;
-    generateReport();
+    _generateReport();
   }
 
-  void generateReport() {
+  void _generateReport() {
     totalCredit.value = 0;
     totalDebit.value = 0;
     monthlyData.clear();
@@ -54,9 +69,10 @@ class ReportsController extends GetxController {
           (dailyTotals[day] ?? 0) + (tx.isCredit ? tx.amount : -tx.amount);
     }
 
-    monthlyData.assignAll(
-      dailyTotals.entries.map((e) => {'day': e.key, 'amount': e.value}).toList()
-        ..sort((a, b) => (a['day'] as int).compareTo(b['day'] as int)),
-    );
+    monthlyData.value =
+        dailyTotals.entries
+            .map((e) => {'day': e.key, 'amount': e.value})
+            .toList()
+          ..sort((a, b) => (a['day'] as int).compareTo(b['day'] as int));
   }
 }

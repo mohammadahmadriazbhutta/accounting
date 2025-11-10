@@ -1,27 +1,23 @@
+import 'package:accounting/controllers/auth_controller.dart';
+import 'package:accounting/screens/auth/forget.dart';
+import 'package:accounting/screens/auth/signup.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
-import '../models/profile_model.dart';
-import 'customer_list_screen.dart';
+import 'package:accounting/screens/dashboard.dart';
 
-class ProfileSetupScreen extends StatefulWidget {
-  const ProfileSetupScreen({super.key});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
+class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _companyNameController = TextEditingController();
-  final _companyPhoneController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _pinController = TextEditingController();
-  final _confirmPinController = TextEditingController();
-  final _questionController = TextEditingController();
-  final _answerController = TextEditingController();
-
+  final AuthController authController = Get.find<AuthController>();
   bool _obscurePin = true;
-  bool _obscureConfirm = true;
 
   @override
   Widget build(BuildContext context) {
@@ -29,18 +25,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
         title: const Text(
-          "Create Profile",
+          "Login",
           style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: Colors.indigoAccent,
-        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // 🌈 Header Card
+            // Header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -61,11 +56,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ),
               child: Column(
                 children: const [
-                  Icon(Icons.account_balance, color: Colors.white, size: 60),
+                  Icon(Icons.lock_outline, color: Colors.white, size: 60),
                   SizedBox(height: 10),
                   Text(
-                    "Setup Your Company Profile",
-                    textAlign: TextAlign.center,
+                    "Welcome Back",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -75,30 +69,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    "Let's personalize your accounting experience",
-                    textAlign: TextAlign.center,
+                    "Enter your phone & PIN to continue",
                     style: TextStyle(color: Colors.white70),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 30),
 
-            // 🧾 Form Fields
+            // Form
             Form(
               key: _formKey,
               child: Column(
                 children: [
                   _buildTextField(
-                    controller: _companyNameController,
-                    label: "Company Name",
-                    icon: Icons.business,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: _companyPhoneController,
-                    label: "Company Phone",
+                    controller: _phoneController,
+                    label: "Phone Number",
                     icon: Icons.phone,
                     keyboardType: TextInputType.phone,
                   ),
@@ -116,48 +102,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       onPressed: () =>
                           setState(() => _obscurePin = !_obscurePin),
                     ),
-                    validator: (v) =>
-                        v == null || v.length < 4 ? "Minimum 4 digits" : null,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: _confirmPinController,
-                    label: "Confirm PIN",
-                    icon: Icons.lock_outline,
-                    obscureText: _obscureConfirm,
-                    suffix: IconButton(
-                      icon: Icon(
-                        _obscureConfirm
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: Colors.grey,
-                      ),
-                      onPressed: () =>
-                          setState(() => _obscureConfirm = !_obscureConfirm),
-                    ),
-                    validator: (v) =>
-                        v != _pinController.text ? "PINs do not match" : null,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: _questionController,
-                    label: "Security Question",
-                    icon: Icons.help_outline,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: _answerController,
-                    label: "Answer",
-                    icon: Icons.question_answer,
                   ),
                   const SizedBox(height: 30),
 
-                  // 🌟 Continue Button
+                  // Login button
                   SizedBox(
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _saveProfile,
+                      onPressed: _login,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.indigoAccent,
                         shape: RoundedRectangleBorder(
@@ -166,7 +119,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         elevation: 5,
                       ),
                       child: const Text(
-                        "Continue",
+                        "Login",
                         style: TextStyle(
                           fontSize: 18,
                           fontFamily: 'Poppins',
@@ -174,6 +127,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           color: Colors.white,
                         ),
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  TextButton(
+                    onPressed: () => Get.to(() => const ForgotPinScreen()),
+                    child: const Text(
+                      "Forgot PIN?",
+                      style: TextStyle(color: Colors.indigoAccent),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Get.to(() => const SignupScreen()),
+                    child: const Text(
+                      "Create New Account",
+                      style: TextStyle(color: Colors.indigoAccent),
                     ),
                   ),
                 ],
@@ -185,7 +153,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 
-  // 🌈 Reusable Text Field
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -193,23 +160,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     TextInputType keyboardType = TextInputType.text,
     bool obscureText = false,
     Widget? suffix,
-    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
-      validator: validator ?? (v) => v!.isEmpty ? "Required" : null,
+      validator: (v) => v!.isEmpty ? "Required" : null,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.indigoAccent),
         suffixIcon: suffix,
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 14,
-          horizontal: 16,
-        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -218,21 +180,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 
-  Future<void> _saveProfile() async {
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-
-    final profile = ProfileModel(
-      companyName: _companyNameController.text,
-      companyPhone: _companyPhoneController.text,
-      pin: _pinController.text,
-      securityQuestion: _questionController.text,
-      answer: _answerController.text,
+    final error = await authController.login(
+      _phoneController.text.trim(),
+      _pinController.text.trim(),
     );
-
-    final box = Hive.box<ProfileModel>('profile');
-    await box.clear();
-    await box.add(profile);
-
-    Get.offAll(() => const CustomerListScreen());
+    if (error != null) {
+      Get.snackbar("Error", error, backgroundColor: Colors.red);
+    } else {
+      Get.offAll(() => const DashboardScreen());
+    }
   }
 }

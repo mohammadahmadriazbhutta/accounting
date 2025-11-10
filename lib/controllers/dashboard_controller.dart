@@ -4,52 +4,89 @@ import '../models/customer_model.dart';
 import '../models/transaction_model.dart';
 
 class DashboardController extends GetxController {
-  late Box<CustomerModel> customerBox;
-  late Box<TransactionModel> transactionBox;
-
   var totalCredit = 0.0.obs;
   var totalDebit = 0.0.obs;
   var netBalance = 0.0.obs;
+  var totalRemainingPayments = 0.0.obs;
+  var isLoading = false.obs;
   var recentTransactions = <TransactionModel>[].obs;
-  var isLoading = true.obs;
+  var monthlyData = <Map<String, dynamic>>[].obs;
+  List<CustomerModel>? customers;
 
   @override
   void onInit() {
     super.onInit();
-    _initBoxes();
+    loadData();
   }
 
-  void _initBoxes() {
+  Future<void> loadData() async {
     try {
-      customerBox = Hive.box<CustomerModel>('customers');
-      transactionBox = Hive.box<TransactionModel>('transactions');
-      calculateTotals();
-    } catch (e) {
-      print('Dashboard Hive error: $e');
-      recentTransactions.clear();
-      isLoading.value = false;
-    }
-  }
-
-  void calculateTotals() {
-    try {
-      final allTx = transactionBox.values.toList();
-      totalCredit.value = allTx
-          .where((t) => t.isCredit)
-          .fold(0.0, (sum, t) => sum + (t.amount ?? 0.0));
-      totalDebit.value = allTx
-          .where((t) => !t.isCredit)
-          .fold(0.0, (sum, t) => sum + (t.amount ?? 0.0));
-      netBalance.value = totalCredit.value - totalDebit.value;
-      recentTransactions.value = allTx.reversed.take(5).toList();
-    } catch (e) {
-      print('Calculate totals error: $e');
-      totalCredit.value = 0;
-      totalDebit.value = 0;
-      netBalance.value = 0;
-      recentTransactions.clear();
+      isLoading(true);
+      await _loadTransactions();
+      await _loadCustomers();
+      _calculateTotals();
+      _calculateMonthlyData();
+      _calculateRemainingPayments();
     } finally {
-      isLoading.value = false;
+      isLoading(false);
     }
+  }
+
+  Future<void> _loadTransactions() async {
+    final box = await Hive.openBox<TransactionModel>('transactions');
+    recentTransactions.assignAll(box.values.toList());
+  }
+
+  Future<void> _loadCustomers() async {
+    final box = await Hive.openBox<CustomerModel>('customers');
+    customers = box.values.toList();
+  }
+
+  Future<void> addTransaction(TransactionModel transaction) async {
+    final box = await Hive.openBox<TransactionModel>('transactions');
+    await box.add(transaction);
+    recentTransactions.add(transaction);
+    _calculateTotals();
+    _calculateMonthlyData();
+    _calculateRemainingPayments();
+  }
+
+  void _calculateTotals() {
+    double credit = 0.0;
+    double debit = 0.0;
+
+    for (var tx in recentTransactions) {
+      if (tx.isCredit) {
+        credit += tx.amount;
+      } else {
+        debit += tx.amount;
+      }
+    }
+
+    totalCredit.value = credit;
+    totalDebit.value = debit;
+    netBalance.value = credit - debit;
+  }
+
+  void _calculateMonthlyData() {
+    Map<String, double> monthly = {};
+
+    for (var tx in recentTransactions) {
+      final monthKey = "${tx.date.year}-${tx.date.month}";
+      monthly[monthKey] = (monthly[monthKey] ?? 0) + tx.amount;
+    }
+
+    monthlyData.assignAll(
+      monthly.entries.map((e) => {"month": e.key, "amount": e.value}).toList(),
+    );
+  }
+
+  // ✅ NEW: Remaining Payments = sum of all customers’ remaining
+  void _calculateRemainingPayments() {
+    double totalRemaining = 0.0;
+    for (var customer in customers ?? []) {
+      totalRemaining += customer.remaining;
+    }
+    totalRemainingPayments.value = totalRemaining;
   }
 }

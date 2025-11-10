@@ -1,116 +1,154 @@
+import 'package:accounting/screens/add_transaction_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/customer_model.dart';
-import '../models/transaction_model.dart';
-import 'add_transaction_screen.dart';
 
-class CustomerDetailScreen extends StatefulWidget {
-  final int customerKey;
-  const CustomerDetailScreen({super.key, required this.customerKey});
+class CustomerDetailScreen extends StatelessWidget {
+  final CustomerModel customer;
 
-  @override
-  State<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
-}
+  const CustomerDetailScreen({super.key, required this.customer});
 
-class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
-  late Box<CustomerModel> customerBox;
-  late Box<TransactionModel> transactionBox;
-
-  CustomerModel? customer;
-  List<TransactionModel> transactions = [];
-
-  @override
-  void initState() {
-    super.initState();
-    customerBox = Hive.box<CustomerModel>('customers');
-    transactionBox = Hive.box<TransactionModel>('transactions');
-    _loadData();
-  }
-
-  void _loadData() {
-    customer = customerBox.get(widget.customerKey);
-    transactions = transactionBox.values
-        .where((t) => t.customerKey == widget.customerKey)
-        .toList()
-        .reversed
-        .toList();
-    setState(() {});
+  void _callCustomer(String phone) async {
+    final Uri url = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      throw 'Could not launch $url';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (customer == null) {
-      return const Scaffold(body: Center(child: Text("Customer not found")));
-    }
+    final createdDate = DateFormat(
+      'yyyy-MM-dd hh:mm a',
+    ).format(customer.createdAt);
 
     return Scaffold(
-      appBar: AppBar(title: Text(customer!.name), centerTitle: true),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.orange.shade400,
-        onPressed: () async {
-          await Get.to(
-            () => AddTransactionScreen(customerKey: widget.customerKey),
-          );
-          _loadData(); // refresh after adding
-        },
-        child: const Icon(Icons.add),
+      backgroundColor: const Color(0xFFF4F6F8),
+      appBar: AppBar(
+        title: Text(
+          customer.name,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.indigoAccent,
+        elevation: 2,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildBalanceCard(isDark),
-            const SizedBox(height: 16),
-            Expanded(
-              child: transactions.isEmpty
-                  ? const Center(child: Text("No transactions yet"))
-                  : ListView.builder(
-                      itemCount: transactions.length,
-                      itemBuilder: (context, index) {
-                        final tx = transactions[index];
-                        final color = tx.isCredit
-                            ? Colors.green.shade600
-                            : Colors.red.shade600;
-
-                        return Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: color.withOpacity(0.15),
-                              child: Icon(
-                                tx.isCredit
-                                    ? Icons.arrow_downward_rounded
-                                    : Icons.arrow_upward_rounded,
-                                color: color,
-                              ),
-                            ),
-                            title: Text(
-                              tx.note,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            subtitle: Text(
-                              "${tx.date.day}/${tx.date.month}/${tx.date.year}",
-                              style: TextStyle(color: Colors.grey.shade500),
-                            ),
-                            trailing: Text(
-                              "${tx.isCredit ? '+' : '-'}${tx.amount.toStringAsFixed(2)}",
-                              style: TextStyle(
-                                color: color,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+            // 🟣 Header Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF5C6BC0), Color(0xFF3949AB)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const Icon(Icons.person, color: Colors.white, size: 60),
+                  const SizedBox(height: 10),
+                  Text(
+                    customer.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
                     ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    customer.phone,
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.indigoAccent,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add),
+                    label: const Text(
+                      "Add Transaction",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () {
+                      Get.to(() => AddTransactionScreen(customer: customer));
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
+            // 🧾 Info Cards
+            _buildInfoCard(
+              icon: Icons.home,
+              title: "Address",
+              value: customer.address ?? 'Not Provided',
+              color: Colors.blueGrey.shade700,
+            ),
+            const SizedBox(height: 12),
+            _buildInfoCard(
+              icon: Icons.calendar_today,
+              title: "Created On",
+              value: createdDate,
+              color: Colors.deepPurple.shade700,
+            ),
+
+            const SizedBox(height: 30),
+
+            // 📞 Call Button
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 35,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                elevation: 5,
+              ),
+              icon: const Icon(Icons.call, color: Colors.white, size: 22),
+              label: const Text(
+                "Call Now",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: () => _callCustomer(customer.phone),
             ),
           ],
         ),
@@ -118,31 +156,37 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 
-  Widget _buildBalanceCard(bool isDark) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade400,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Text(
-            "Total Balance",
-            style: TextStyle(color: Colors.white70, fontSize: 16),
+  // 🌈 Reusable Info Card Widget
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withOpacity(0.15),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+            fontFamily: 'Poppins',
           ),
-          const SizedBox(height: 5),
-          Text(
-            "${customer!.totalAmount.toStringAsFixed(2)} PKR",
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+        ),
+        subtitle: Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
           ),
-        ],
+        ),
       ),
     );
   }

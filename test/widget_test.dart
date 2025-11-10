@@ -5,7 +5,7 @@ import 'package:accounting/controllers/theme_controller.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(MyApp(themeController: ThemeController()));
+    await tester.pumpWidget(MyApp());
 
     expect(find.text('0'), findsOneWidget);
     expect(find.text('1'), findsNothing);

@@ -1,9 +1,8 @@
-// profile_model.dart
 import 'package:hive/hive.dart';
 
 part 'profile_model.g.dart';
 
-@HiveType(typeId: 0) // 👈 make this 0
+@HiveType(typeId: 0)
 class ProfileModel extends HiveObject {
   @HiveField(0)
   String companyName;

@@ -1,27 +1,36 @@
+import 'package:accounting/controllers/auth_controller.dart';
+import 'package:accounting/models/user_model.dart';
+import 'package:accounting/screens/auth/login.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
-import '../models/profile_model.dart';
-import 'customer_list_screen.dart';
 
-class ProfileSetupScreen extends StatefulWidget {
-  const ProfileSetupScreen({super.key});
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
 
   @override
-  State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
+  State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
+class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _companyNameController = TextEditingController();
-  final _companyPhoneController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _pinController = TextEditingController();
   final _confirmPinController = TextEditingController();
-  final _questionController = TextEditingController();
   final _answerController = TextEditingController();
+  final AuthController authController = Get.find<AuthController>();
 
   bool _obscurePin = true;
   bool _obscureConfirm = true;
+
+  // ✅ Security question dropdown items
+  final List<String> _questions = [
+    "Your mother's name?",
+    "Your father's name?",
+    "Your childhood best friend?",
+  ];
+
+  String? _selectedQuestion;
 
   @override
   Widget build(BuildContext context) {
@@ -29,18 +38,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
         title: const Text(
-          "Create Profile",
+          "Sign Up",
           style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: Colors.indigoAccent,
-        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // 🌈 Header Card
+            // 🌈 Header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -61,11 +69,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ),
               child: Column(
                 children: const [
-                  Icon(Icons.account_balance, color: Colors.white, size: 60),
+                  Icon(Icons.person_add_alt_1, color: Colors.white, size: 60),
                   SizedBox(height: 10),
                   Text(
-                    "Setup Your Company Profile",
-                    textAlign: TextAlign.center,
+                    "Create Your Account",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -75,30 +82,28 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    "Let's personalize your accounting experience",
-                    textAlign: TextAlign.center,
+                    "Set your secure 4-digit PIN",
                     style: TextStyle(color: Colors.white70),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 30),
 
-            // 🧾 Form Fields
+            // 🧾 Form
             Form(
               key: _formKey,
               child: Column(
                 children: [
                   _buildTextField(
-                    controller: _companyNameController,
-                    label: "Company Name",
-                    icon: Icons.business,
+                    controller: _nameController,
+                    label: "Full Name",
+                    icon: Icons.person,
                   ),
                   const SizedBox(height: 14),
                   _buildTextField(
-                    controller: _companyPhoneController,
-                    label: "Company Phone",
+                    controller: _phoneController,
+                    label: "Phone Number",
                     icon: Icons.phone,
                     keyboardType: TextInputType.phone,
                   ),
@@ -117,7 +122,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           setState(() => _obscurePin = !_obscurePin),
                     ),
                     validator: (v) =>
-                        v == null || v.length < 4 ? "Minimum 4 digits" : null,
+                        v!.length < 4 ? "PIN must be at least 4 digits" : null,
                   ),
                   const SizedBox(height: 14),
                   _buildTextField(
@@ -139,11 +144,35 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         v != _pinController.text ? "PINs do not match" : null,
                   ),
                   const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: _questionController,
-                    label: "Security Question",
-                    icon: Icons.help_outline,
+
+                  // 🔽 Security Question Dropdown
+                  DropdownButtonFormField<String>(
+                    value: _selectedQuestion,
+                    items: _questions
+                        .map((q) => DropdownMenuItem(value: q, child: Text(q)))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedQuestion = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      labelText: "Security Question",
+                      prefixIcon: const Icon(
+                        Icons.help_outline,
+                        color: Colors.indigoAccent,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    validator: (v) =>
+                        v == null ? "Please select a security question" : null,
                   ),
+
                   const SizedBox(height: 14),
                   _buildTextField(
                     controller: _answerController,
@@ -152,12 +181,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   ),
                   const SizedBox(height: 30),
 
-                  // 🌟 Continue Button
+                  // 🌟 Sign Up Button
                   SizedBox(
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _saveProfile,
+                      onPressed: _signUp,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.indigoAccent,
                         shape: RoundedRectangleBorder(
@@ -166,7 +195,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         elevation: 5,
                       ),
                       child: const Text(
-                        "Continue",
+                        "Sign Up",
                         style: TextStyle(
                           fontSize: 18,
                           fontFamily: 'Poppins',
@@ -174,6 +203,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           color: Colors.white,
                         ),
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  TextButton(
+                    onPressed: () => Get.off(() => const LoginScreen()),
+                    child: const Text(
+                      "Already have an account? Login",
+                      style: TextStyle(color: Colors.indigoAccent),
                     ),
                   ),
                 ],
@@ -185,7 +222,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 
-  // 🌈 Reusable Text Field
+  // 🧩 Reusable Input
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -206,10 +243,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         suffixIcon: suffix,
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 14,
-          horizontal: 16,
-        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -218,21 +251,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 
-  Future<void> _saveProfile() async {
+  // ✅ Sign Up Logic
+  Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
-
-    final profile = ProfileModel(
-      companyName: _companyNameController.text,
-      companyPhone: _companyPhoneController.text,
-      pin: _pinController.text,
-      securityQuestion: _questionController.text,
-      answer: _answerController.text,
+    final newUser = UserModel(
+      name: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
+      pin: _pinController.text.trim(),
+      question: _selectedQuestion ?? '',
+      answer: _answerController.text.trim(),
     );
 
-    final box = Hive.box<ProfileModel>('profile');
-    await box.clear();
-    await box.add(profile);
-
-    Get.offAll(() => const CustomerListScreen());
+    final error = await authController.signUp(newUser);
+    if (error != null) {
+      Get.snackbar("Error", error, backgroundColor: Colors.red);
+    } else {
+      Get.offAll(() => const LoginScreen());
+    }
   }
 }
